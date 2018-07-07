@@ -6,6 +6,7 @@ import json
 import logging
 import random
 import webapp2
+from collections import deque
 
 # Reads json description of the board and provides simple interface.
 class Game:
@@ -149,10 +150,41 @@ Paste JSON here:<p/><textarea name=json cols=80 rows=24></textarea>
         # Do the picking of a move and print the result.
         self.pickMove(g)
 
-
+        
     def pickMove(self, g):
-    	# Gets all valid moves.
-    	valid_moves = g.ValidMoves()
+        # Gets all valid moves.
+    	valid_moves = g.ValidMoves()        
+        
+        def score(board):
+                score_1 = 0
+                score_2 = 0
+                for y in xrange(1,9):
+                        for x in xrange(1,9):
+                                if board["Pieces"][y][x] == 1:
+                                        score_1 += 1
+                                elif board["Pieces"][y][x] == 2:
+                                        score_2 += 1
+                if board["Next"] == 1 and score_1 == min(score_1,score_2):
+                        return 0#player1 is min score = 0 
+                elif board["Next"] == 2 and score_2 == max(score_1,score_2):
+                        return 100#player2 is max score = 100
+
+        save_valid_move = []        
+        def min_max(bord,move,depth,g):#player1 = min0, player2 = max100
+                global save_valid_move
+                q = deque([])
+                if depth > 1:#Repeat min_max until depth > 5
+		        return save_valid_move
+                for i in range(len(move)):#Insert valid_move in the queue
+                        q.append(move[i])
+                while len(q) > 0:
+                        #check = q.popleft()
+                        #new_borad = score(g.NextBoardPosition(q.popleft()))
+                        logging.info("============= say!! ==============")
+                        logging.info(g.NextBoardPosition(q.popleft()))
+                        #logging.info(q.popleft())
+                        #score(g.NextBoardPosition(q.popleft()))
+
     	if len(valid_moves) == 0:
     		# Passes if no valid moves.
     		self.response.write("PASS")
@@ -162,6 +194,13 @@ Paste JSON here:<p/><textarea name=json cols=80 rows=24></textarea>
                 # You'll probably want to change how this works, to do something
                 # more clever than just picking a random move.
 	    	move = random.choice(valid_moves)
+                move1 = min_max(g._board,valid_moves,1,g)#min_max法
+                logging.info("============= say ==============")
+                #logging.info(g._board["Pieces"])#現在の盤面
+                logging.info(g)
+                logging.info(move)
+                logging.info(g._board)
+                logging.info(valid_moves)#打つことが出来る升
     		self.response.write(PrettyMove(move))
 
 app = webapp2.WSGIApplication([
