@@ -6,7 +6,7 @@ import json
 import logging
 import random
 import webapp2
-from collections import deque
+import time
 
 # Reads json description of the board and provides simple interface.
 class Game:
@@ -93,7 +93,8 @@ class Game:
                 
                 # Something was captured. Move is valid.
                 new_board["Next"] = 3 - self.Next()
-		return Game(board=new_board)
+		#return Game(board=new_board)
+                return new_board
 
 # Returns piece on the board.
 # 0 for no pieces, 1 for player 1, 2 for player 2.
@@ -153,38 +154,224 @@ Paste JSON here:<p/><textarea name=json cols=80 rows=24></textarea>
         
     def pickMove(self, g):
         # Gets all valid moves.
-    	valid_moves = g.ValidMoves()        
+    	valid_moves = g.ValidMoves()  
         
-        def score(board):
-                score_1 = 0
-                score_2 = 0
-                for y in xrange(1,9):
-                        for x in xrange(1,9):
+        def count_black(board):
+                score = 0
+                corner = [0,0,0,0]
+               
+                for y in xrange(0,8):
+                        for x in xrange(0,8):
                                 if board["Pieces"][y][x] == 1:
-                                        score_1 += 1
-                                elif board["Pieces"][y][x] == 2:
-                                        score_2 += 1
-                if board["Next"] == 1 and score_1 == min(score_1,score_2):
-                        return 0#player1 is min score = 0 
-                elif board["Next"] == 2 and score_2 == max(score_1,score_2):
-                        return 100#player2 is max score = 100
+                                        score += 1
+                                if (x==2 or x==5) and (y==2 or y==5) and board["Pieces"][y][x]==1:#filled center corner
+                                        score += 1
+                                if (x==0 or x==7) and (y==0 or y==7) and board["Pieces"][y][x]==1:#filled corner
+                                        score += 10
+                                        if x==0 and y==0:
+                                                corner[0] += 1
+                                        if x==7 and y==0:
+                                                corner[1] += 1
+                                        if x==0 and y==7:
+                                                corner[2] += 1
+                                        if x==7 and y==7:
+                                                corner[3] += 1
+                filled_path_order0 = 0
+                filled_path_count0 = 0
+                filled_path_order1 = 0
+                filled_path_order2 = 0
+                for y in xrange(0,8):
+                        for x in xrange(0,8):
+                                if filled_path_count0 == 6:
+                                        filled_path_count0 = 0
+                                        filled_path_order0 = 0
+                                #blanked corner process
+                                if (x==0 or x==1) and (y==0 or y==1) and corner[0] == 0 and board["Pieces"][y][x]==1:
+                                        score -= 20
+                                if (x==6 or x==7) and (y==0 or y==1) and corner[1] == 0 and board["Pieces"][y][x]==1:
+                                        score -= 20
+                                if (x==0 or x==1) and (y==6 or y==7) and corner[2] == 0 and board["Pieces"][y][x]==1:
+                                        score -= 20
+                                if (x==6 or x==7) and (y==6 or y==7) and corner[3] == 0 and board["Pieces"][y][x]==1:
+                                        score -= 20
+                                #filled corner process(check 4 edges)
+                                if ((y==0 and x!=0 and x!=7) or (x==0 and y!=0 and y!=7)) and corner[0] != 0:
+                                        filled_path_count0 += 1
+                                        if board["Pieces"][y][x]==1 and filled_path_order0 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order0 = 1
+                                if (x==7 and y!=0 and y!=7) and corner[1] != 0:
+                                        if board["Pieces"][y][x]==1 and filled_path_order1 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order1 = 1
+                                if (y==7 and x!=0 and x!=7) and corner[2] != 0:
+                                        if board["Pieces"][y][x]==1 and filled_path_order2 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order2 = 1
 
-        save_valid_move = []        
-        def min_max(bord,move,depth,g):#player1 = min0, player2 = max100
-                global save_valid_move
-                q = deque([])
-                if depth > 1:#Repeat min_max until depth > 5
-		        return save_valid_move
-                for i in range(len(move)):#Insert valid_move in the queue
-                        q.append(move[i])
-                while len(q) > 0:
-                        #check = q.popleft()
-                        #new_borad = score(g.NextBoardPosition(q.popleft()))
-                        logging.info("============= say!! ==============")
-                        logging.info(g.NextBoardPosition(q.popleft()))
-                        #logging.info(q.popleft())
-                        #score(g.NextBoardPosition(q.popleft()))
+                filled_path_order3 = 0
+                filled_path_count3 = 0
+                filled_path_order1 = 0
+                filled_path_order2 = 0
+                for y in reversed(xrange(0,8)):
+                        for x in reversed(xrange(0,8)):
+                                if filled_path_count3 == 6:
+                                        filled_path_count3 = 0
+                                        filled_path_order3 = 0
+                                #filled corner process(check 4 edges)
+                                if ((y==7 and x!=0 and x!=7) or (x==7 and y!=0 and y!=7)) and corner[3] != 0:
+                                        filled_path_count3 += 1
+                                        if board["Pieces"][y][x]==1 and filled_path_order3 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order3 = 1
+                                if (y==0 and x!=0 and x!=7) and corner[1] != 0:
+                                        if board["Pieces"][y][x]==1 and filled_path_order1 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order1 = 1
+                                if (x==0 and y!=0 and y!=7) and corner[2] != 0:
+                                        if board["Pieces"][y][x]==1 and filled_path_order2 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order2 = 1                            
+                                        
+                                                
+                return score
 
+
+
+        
+        def count_white(board):
+                score = 0
+                corner = [0,0,0,0]
+               
+                for y in xrange(0,8):
+                        for x in xrange(0,8):
+                                if board["Pieces"][y][x] == 2:
+                                        score += 1
+                                if (x==2 or x==5) and (y==2 or y==5) and board["Pieces"][y][x]==2:#filled center corner
+                                        score += 1
+                                if (x==0 or x==7) and (y==0 or y==7) and board["Pieces"][y][x]==2:#filled corner
+                                        score += 10
+                                        if x==0 and y==0:
+                                                corner[0] += 1
+                                        if x==7 and y==0:
+                                                corner[1] += 1
+                                        if x==0 and y==7:
+                                                corner[2] += 1
+                                        if x==7 and y==7:
+                                                corner[3] += 1
+                filled_path_order0 = 0
+                filled_path_count0 = 0
+                filled_path_order1 = 0
+                filled_path_order2 = 0
+                for y in xrange(0,8):
+                        for x in xrange(0,8):
+                                if filled_path_count0 == 6:
+                                        filled_path_count0 = 0
+                                        filled_path_order0 = 0
+                                #blanked corner process
+                                if (x==0 or x==1) and (y==0 or y==1) and corner[0] == 0 and board["Pieces"][y][x]==2:
+                                        score -= 20
+                                if (x==6 or x==7) and (y==0 or y==1) and corner[1] == 0 and board["Pieces"][y][x]==2:
+                                        score -= 20
+                                if (x==0 or x==1) and (y==6 or y==7) and corner[2] == 0 and board["Pieces"][y][x]==2:
+                                        score -= 20
+                                if (x==6 or x==7) and (y==6 or y==7) and corner[3] == 0 and board["Pieces"][y][x]==2:
+                                        score -= 20
+                                #filled corner process(check 4 edges)
+                                if ((y==0 and x!=0 and x!=7) or (x==0 and y!=0 and y!=7)) and corner[0] != 0:
+                                        filled_path_count0 += 1
+                                        if board["Pieces"][y][x]==2 and filled_path_order0 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order0 = 1
+                                if (x==7 and y!=0 and y!=7) and corner[1] != 0:
+                                        if board["Pieces"][y][x]==2 and filled_path_order1 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order1 = 1
+                                if (y==7 and x!=0 and x!=7) and corner[2] != 0:
+                                        if board["Pieces"][y][x]==2 and filled_path_order2 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order2 = 1
+
+                filled_path_order3 = 0
+                filled_path_count3 = 0
+                filled_path_order1 = 0
+                filled_path_order2 = 0
+                for y in reversed(xrange(0,8)):
+                        for x in reversed(xrange(0,8)):
+                                if filled_path_count3 == 6:
+                                        filled_path_count3 = 0
+                                        filled_path_order3 = 0
+                                #filled corner process(check 4 edges)
+                                if ((y==7 and x!=0 and x!=7) or (x==7 and y!=0 and y!=7)) and corner[3] != 0:
+                                        filled_path_count3 += 1
+                                        if board["Pieces"][y][x]==2 and filled_path_order3 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order3 = 1
+                                if (y==0 and x!=0 and x!=7) and corner[1] != 0:
+                                        if board["Pieces"][y][x]==2 and filled_path_order1 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order1 = 1
+                                if (x==0 and y!=0 and y!=7) and corner[2] != 0:
+                                        if board["Pieces"][y][x]==2 and filled_path_order2 == 0:
+                                                score += 10
+                                        else:
+                                                filled_path_order2 = 1                            
+                                        
+                                                
+                return score
+
+
+        def checked_moves(moves):
+                checked_moves = []
+                for i in xrange(len(moves)):
+                        for y in xrange(3,7):
+                                for x in xrange(3,7):
+                                        if moves[i]["Where"] == [x,y]:
+                                                checked_moves.append(moves[i])
+                if len(checked_moves) == 0:
+                        return moves
+                else:
+                        return checked_moves         
+
+        def min_max(board,depth,g,time1):#player1 gets min, player2 gets max
+                time2 = time.time()
+                if time2 - time1 > 15:#Stop min_max over 15s
+                        return "stop",{}
+                if depth < 1:#Repeat min_max until depth > 100
+		        return  count_white(board) - count_black(board),{}
+                #moves = checked_moves(g.ValidMoves())#Select priority center valid moves but there are no choice, select all valid moves
+                moves = g.ValidMoves()
+                best_score = 1000 if board["Next"] == 1 else -1000
+                best_move = {}
+    	        for i in range(len(moves)):
+                        next_board = g.NextBoardPosition(moves[i])
+                        score,move = min_max(next_board,depth-1,g,time1)
+                        if score == "stop":#timeout process
+                                best_move = {}
+                                best_score = "stop"
+                                break
+                        if board["Next"] == 1:#player1 process
+                                if score < best_score:
+                                        best_score = score
+                                        best_move = moves[i]
+                        if board["Next"] == 2:#player2 process
+                                if score > best_score:
+                                        best_score = score
+                                        best_move = moves[i]
+                return best_score,best_move 
+        
+        
     	if len(valid_moves) == 0:
     		# Passes if no valid moves.
     		self.response.write("PASS")
@@ -193,15 +380,24 @@ Paste JSON here:<p/><textarea name=json cols=80 rows=24></textarea>
                 # TO STEP STUDENTS:
                 # You'll probably want to change how this works, to do something
                 # more clever than just picking a random move.
-	    	move = random.choice(valid_moves)
-                move1 = min_max(g._board,valid_moves,1,g)#min_max法
-                logging.info("============= say ==============")
-                #logging.info(g._board["Pieces"])#現在の盤面
-                logging.info(g)
+	    	#move1 = random.choice(valid_moves)
+                move = []
+                time1 = time.time()
+                for i in range(1,6):
+                        (best_score, best_move) = min_max(g._board,i,g,time1)
+                        if best_move == {}:
+                                break
+                        else:
+                                move.append(best_move)
+
+                time2 = time.time()
+                logging.info("============= wow!! ==============")
                 logging.info(move)
-                logging.info(g._board)
-                logging.info(valid_moves)#打つことが出来る升
-    		self.response.write(PrettyMove(move))
+                logging.info(time1)
+                logging.info(time2)
+                logging.info("============= wow!! ==============")
+    		self.response.write(PrettyMove(move[len(move)-1]))
+                #self.response.write(PrettyMove(best_move))
 
 app = webapp2.WSGIApplication([
     ('/', MainHandler)
